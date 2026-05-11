@@ -27,6 +27,7 @@ shcedule/
 │   │   ├── routes/            # API路由
 │   │   │   ├── staff.ts       # 人员管理
 │   │   │   ├── schedule.ts    # 排班管理
+│   │   │   ├── shift.ts       # 班次管理
 │   │   │   ├── staffRequest.ts # 休息申请
 │   │   │   ├── fixedShift.ts  # 固定班次
 │   │   │   └── scheduleChangeLog.ts # 排班变更日志
@@ -61,6 +62,23 @@ shcedule/
 
 ## 数据库设计
 
+### 0. 班次定义表 (shift)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INT PK AUTO_INCREMENT | 主键 |
+| code | VARCHAR(20) NOT NULL UNIQUE | 班次代码(唯一标识) |
+| name | VARCHAR(30) NOT NULL | 班次名称 |
+| category | VARCHAR(20) | 分类: night/day/rest/other |
+| start_time | TIME | 开始时间 |
+| end_time | TIME | 结束时间 |
+| duration_hours | DECIMAL(4,1) | 时长(小时) |
+| applicable_days | VARCHAR(20) | 适用日期: all/weekday/weekend |
+| color | VARCHAR(20) | 显示颜色 |
+| sort_order | INT | 排序顺序 |
+| is_active | BOOLEAN | 是否启用 |
+| description | VARCHAR(200) | 说明 |
+
 ### 1. 人员表 (staff)
 
 | 字段 | 类型 | 说明 |
@@ -86,6 +104,8 @@ shcedule/
 | week_start | DATE NOT NULL | 周开始日期(周一) |
 | week_day | TINYINT NOT NULL | 星期(1-7) |
 | shift_type | VARCHAR(30) NOT NULL | 班次类型 |
+| shift_id | INT FK | 班次ID(关联shift表) |
+| remark | VARCHAR(255) | 备注(如代理、跟岗、入科等) |
 | is_generated | BOOLEAN DEFAULT FALSE | 是否自动生成 |
 | is_edited | BOOLEAN DEFAULT FALSE | 是否手动编辑过 |
 | created_at | DATETIME | 创建时间 |
@@ -115,6 +135,8 @@ UNIQUE KEY: (staff_id, week_start, week_day)
 | staff_id | INT FK | 人员ID |
 | assign_date | DATE NOT NULL | 分配日期 |
 | shift_type | VARCHAR(30) NOT NULL | 班次类型 |
+| shift_id | INT FK | 班次ID |
+| remark | VARCHAR(255) | 备注 |
 | reason | VARCHAR(200) | 原因 |
 | created_at | DATETIME | 创建时间 |
 
@@ -128,6 +150,9 @@ UNIQUE KEY: (staff_id, week_start, week_day)
 | week_day | TINYINT NOT NULL | 星期(1-7) |
 | old_shift | VARCHAR(30) | 原班次 |
 | new_shift | VARCHAR(30) | 新班次 |
+| old_shift_id | INT | 原班次ID |
+| new_shift_id | INT | 新班次ID |
+| remark | VARCHAR(255) | 备注 |
 | changed_by | VARCHAR(50) | 操作人 |
 | created_at | DATETIME | 创建时间 |
 
@@ -147,11 +172,21 @@ UNIQUE KEY: (staff_id, week_start, week_day)
 | 正1+2 | 正班1+2 | 07:30-12:00,14:30-17:00 | 每天 |
 | 正(中) | 正班(中) | 中医相关 | 周一到周五 |
 | 正(医) | 正班(医) | 医嘱班 | 周一到周五 |
-| 正(服) | 正班(服) | 服药班 | 周一到周五 |
+| A(服) | 正班(服) | 服药班 | 周一到周五 |
 | 正(医+服) | 正班(医+服) | 医嘱+服药 | 周六到周日 |
-| 医嘱 | 医嘱班 | - | 周一到周五 |
-| 服药 | 服药班 | - | 周一到周五 |
+| 出科 | 出科 | - | 每天 |
 | / | 未排班 | - | - |
+
+---
+
+## 备注功能
+
+排班支持添加备注信息，用于记录代理、跟岗、入科等附加说明。
+
+- 备注显示在排班表格单元格中，格式为: `班次(备注)`，如 `P(代理)`
+- 备注不影响班次本身的属性定义及系统逻辑处理
+- 复制本周排班时，备注信息会一并复制
+- 备注信息存储在 `remark` 字段中，最大长度255字符
 
 ---
 
@@ -200,8 +235,20 @@ UNIQUE KEY: (staff_id, week_start, week_day)
 | POST | /api/schedule/batch | 批量保存排班 |
 | GET | /api/schedule/current-week | 获取本周日期范围 |
 | POST | /api/schedule/generate-night | 生成下周夜班排班 |
+| POST | /api/schedule/generate-night?randomize=true | 随机生成下周夜班排班 |
 | POST | /api/schedule/copy | 拷贝排班到另一周 |
 | POST | /api/schedule/validate | 校验排班 |
+
+### 班次管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/shift | 获取所有班次 |
+| GET | /api/shift?category=night | 按分类筛选 |
+| GET | /api/shift/:id | 获取单个班次 |
+| POST | /api/shift | 创建班次 |
+| PUT | /api/shift/:id | 更新班次 |
+| DELETE | /api/shift/:id | 删除班次(有引用时禁止删除) |
 
 ### 休息申请
 

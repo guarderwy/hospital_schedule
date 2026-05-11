@@ -39,7 +39,7 @@
             @drop="onDrop(row.staff.id, index + 1)"
           >
             <div class="shift-pill" :style="shiftStyle(row.shifts[index]?.shift_type)">
-              <span>{{ row.shifts[index]?.shift_type || '/' }}</span>
+              <span>{{ displayShiftText(row.shifts[index]) }}</span>
               <i v-if="row.shifts[index]?.is_edited" class="dot edited"></i>
               <i v-if="isFixedShift(row.staff.id, index + 1)" class="dot fixed-dot"></i>
             </div>
@@ -80,9 +80,28 @@
           <span class="picker-pill" :style="shiftStyle(shift)">{{ shift || '清空' }}</span>
         </button>
       </div>
+      <div class="remark-section">
+        <el-button size="small" @click="openRemarkDialog">添加备注</el-button>
+        <span v-if="currentRemark" class="remark-preview">备注: ({{ currentRemark }})</span>
+      </div>
       <template #footer>
         <el-button @click="pickerVisible = false">取消</el-button>
         <el-button type="primary" @click="confirmShift">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="remarkDialogVisible" title="编辑备注" width="420px">
+      <el-input
+        v-model="remarkInput"
+        type="textarea"
+        :rows="3"
+        placeholder="请输入备注信息，如: 代理、跟岗、入科等"
+        maxlength="100"
+        show-word-limit
+      />
+      <template #footer>
+        <el-button @click="remarkDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmRemark">确定</el-button>
       </template>
     </el-dialog>
 
@@ -111,17 +130,20 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'update-shift', staffId: number, weekDay: number, shiftType: string): void
+  (e: 'update-shift', staffId: number, weekDay: number, shiftType: string, remark?: string): void
   (e: 'swap-shifts', source: { staffId: number; weekDay: number }, target: { staffId: number; weekDay: number }): void
 }>()
 
 const pickerVisible = ref(false)
 const selectedShift = ref('')
+const currentRemark = ref('')
 const activeCell = ref<{ staffId: number; weekDay: number; staffName: string; dateLabel: string } | null>(null)
 const dragSource = ref<{ staffId: number; weekDay: number } | null>(null)
 const swapVisible = ref(false)
 const swapSource = ref<{ staffId: number; weekDay: number; staffName: string; dateLabel: string } | null>(null)
 const swapTarget = ref<{ staffId: number; weekDay: number; staffName: string; dateLabel: string } | null>(null)
+const remarkDialogVisible = ref(false)
+const remarkInput = ref('')
 
 const legendItems = computed(() => {
   const keys = new Set<string>()
@@ -135,6 +157,15 @@ const legendItems = computed(() => {
     return acc
   }, {})
 })
+
+function displayShiftText(shift: any): string {
+  const shiftType = shift?.shift_type || '/'
+  const remark = shift?.remark
+  if (remark) {
+    return `${shiftType}(${remark})`
+  }
+  return shiftType
+}
 
 function shiftStyle(shift: string | undefined) {
   const meta = SHIFT_META[shift || '/'] || SHIFT_META['/']
@@ -165,13 +196,24 @@ function onCellClick(row: StaffSchedule, column: { label?: string }) {
     dateLabel: `${WEEK_DAYS[index]} ${props.weekDates[index]}`,
   }
   selectedShift.value = row.shifts[index]?.shift_type || ''
+  currentRemark.value = row.shifts[index]?.remark || ''
   pickerVisible.value = true
 }
 
 function confirmShift() {
   if (!activeCell.value) return
-  emit('update-shift', activeCell.value.staffId, activeCell.value.weekDay, selectedShift.value)
+  emit('update-shift', activeCell.value.staffId, activeCell.value.weekDay, selectedShift.value, currentRemark.value || undefined)
   pickerVisible.value = false
+}
+
+function openRemarkDialog() {
+  remarkInput.value = currentRemark.value
+  remarkDialogVisible.value = true
+}
+
+function confirmRemark() {
+  currentRemark.value = remarkInput.value.trim()
+  remarkDialogVisible.value = false
 }
 
 function onDragStart(staffId: number, weekDay: number) {
@@ -358,6 +400,18 @@ function confirmSwap() {
   border-radius: 999px;
   border: 1px solid;
   font-weight: 700;
+}
+
+.remark-section {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.remark-preview {
+  font-size: 12px;
+  color: #64748b;
 }
 
 .swap-box {

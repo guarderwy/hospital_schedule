@@ -14,12 +14,26 @@ export type ShiftType =
   | '正1+2'
   | '正(中)'
   | '正(医)'
-  | '正(服)'
+  | 'A(服)'
   | '正(医+服)'
-  | '医嘱'
-  | '服药'
+  | '出科'
   | '/'
   | ''
+
+export interface Shift {
+  id: number
+  code: string
+  name: string
+  category: string
+  start_time: string | null
+  end_time: string | null
+  duration_hours: number | null
+  applicable_days: string
+  color: string | null
+  sort_order: number
+  is_active: boolean
+  description: string | null
+}
 
 export interface Staff {
   id: number
@@ -43,6 +57,8 @@ export interface Schedule {
   week_start: string
   week_day: number
   shift_type: ShiftType | string
+  shift_id?: number | null
+  remark?: string | null
   is_generated: boolean
   is_edited: boolean
   created_at: string
@@ -124,10 +140,9 @@ export const SHIFT_TYPES: ShiftType[] = [
   '正1+2',
   '正(中)',
   '正(医)',
-  '正(服)',
+  'A(服)',
   '正(医+服)',
-  '医嘱',
-  '服药',
+  '出科',
   '/',
   '',
 ]
@@ -143,10 +158,9 @@ export const SHIFT_META: Record<string, { label: string; bg: string; text: strin
   '正1+2': { label: '正1+2', bg: '#ffe4e6', text: '#be123c', border: '#fda4af' },
   '正(中)': { label: '正(中)', bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
   '正(医)': { label: '正(医)', bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd' },
-  '正(服)': { label: '正(服)', bg: '#fae8ff', text: '#a21caf', border: '#f0abfc' },
+  'A(服)': { label: 'A(服)', bg: '#fae8ff', text: '#a21caf', border: '#f0abfc' },
   '正(医+服)': { label: '正(医+服)', bg: '#ecfccb', text: '#3f6212', border: '#bef264' },
-  医嘱: { label: '医嘱', bg: '#cffafe', text: '#155e75', border: '#67e8f9' },
-  服药: { label: '服药', bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5' },
+  出科: { label: '出科', bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' },
   '/': { label: '/', bg: '#f8fafc', text: '#64748b', border: '#cbd5e1' },
   '': { label: '清空', bg: '#f8fafc', text: '#64748b', border: '#cbd5e1' },
 }

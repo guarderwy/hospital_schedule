@@ -47,7 +47,7 @@
         <ScheduleMatrix
           :week-dates="currentWeekDates"
           :staff-data="currentWeekData"
-          @update-shift="(staffId, weekDay, shiftType) => updateSchedule('current', staffId, weekDay, shiftType)"
+          @update-shift="(staffId, weekDay, shiftType, remark) => updateSchedule('current', staffId, weekDay, shiftType, remark)"
         />
       </el-card>
 
@@ -71,7 +71,7 @@
           :week-dates="nextWeekDates"
           :staff-data="nextWeekData"
           :fixed-shifts="fixedShiftsForNextWeek"
-          @update-shift="(staffId, weekDay, shiftType) => updateSchedule('next', staffId, weekDay, shiftType)"
+          @update-shift="(staffId, weekDay, shiftType, remark) => updateSchedule('next', staffId, weekDay, shiftType, remark)"
           @swap-shifts="swapShifts"
         />
       </el-card>
@@ -340,8 +340,8 @@ onMounted(async () => {
   }
 })
 
-function updateSchedule(target: 'current' | 'next', staffId: number, weekDay: number, shiftType: string) {
-  scheduleStore.updateSchedule(target, staffId, weekDay, shiftType, false)
+function updateSchedule(target: 'current' | 'next', staffId: number, weekDay: number, shiftType: string, remark?: string) {
+  scheduleStore.updateSchedule(target, staffId, weekDay, shiftType, false, remark)
 }
 
 function normalizeNextResult(items: any[]): Schedule[] {
@@ -351,6 +351,8 @@ function normalizeNextResult(items: any[]): Schedule[] {
     week_start: item.week_start || nextWeekStart.value,
     week_day: item.week_day,
     shift_type: item.shift_type,
+    shift_id: item.shift_id || null,
+    remark: item.remark || null,
     is_generated: !!item.is_generated,
     is_edited: !!item.is_edited,
     created_at: item.created_at || new Date().toISOString(),
@@ -431,7 +433,17 @@ async function generateNextWeek() {
 }
 
 async function refreshNextWeek() {
-  await generateNextWeek()
+  if (!currentWeekStart.value || !nextWeekStart.value) return
+  loading.generate = true
+  try {
+    const res: any = await generateNightSchedule(currentWeekStart.value, nextWeekStart.value, true)
+    if (res.code === 0) {
+      scheduleStore.replaceNextSchedules(normalizeNextResult(res.data))
+      ElMessage.success('排班已刷新')
+    }
+  } finally {
+    loading.generate = false
+  }
 }
 
 function swapShifts(source: { staffId: number; weekDay: number }, target: { staffId: number; weekDay: number }) {

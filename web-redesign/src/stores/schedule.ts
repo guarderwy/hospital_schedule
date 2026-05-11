@@ -75,13 +75,15 @@ export const useScheduleStore = defineStore('redesign-schedule', () => {
     }
   }
 
-  function updateSchedule(target: 'current' | 'next', staffId: number, weekDay: number, shiftType: string, isGenerated = false) {
+  function updateSchedule(target: 'current' | 'next', staffId: number, weekDay: number, shiftType: string, isGenerated = false, remark?: string) {
     const list = target === 'current' ? currentWeekSchedules.value : nextWeekSchedules.value
     const weekStart = target === 'current' ? currentWeekStart.value : nextWeekStart.value
     const current = list.find((item) => item.staff_id === staffId && item.week_day === weekDay)
 
     if (current) {
       current.shift_type = shiftType
+      current.shift_id = current.shift_id || null
+      current.remark = remark || null
       current.is_generated = isGenerated
       current.is_edited = !isGenerated
       current.updated_at = new Date().toISOString()
@@ -94,6 +96,8 @@ export const useScheduleStore = defineStore('redesign-schedule', () => {
       week_start: weekStart,
       week_day: weekDay,
       shift_type: shiftType,
+      shift_id: null,
+      remark: remark || null,
       is_generated: isGenerated,
       is_edited: !isGenerated,
       created_at: new Date().toISOString(),

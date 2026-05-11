@@ -6,6 +6,7 @@ import scheduleRoutes from './routes/schedule';
 import staffRequestRoutes from './routes/staffRequest';
 import fixedShiftRoutes from './routes/fixedShift';
 import scheduleChangeLogRoutes from './routes/scheduleChangeLog';
+import shiftRoutes from './routes/shift';
 import { errorHandler } from './utils/errorHandler';
 import pool from './utils/db';
 
@@ -22,6 +23,7 @@ app.use('/api/schedule', scheduleRoutes);
 app.use('/api/staff-request', staffRequestRoutes);
 app.use('/api/fixed-shift', fixedShiftRoutes);
 app.use('/api/schedule-change-log', scheduleChangeLogRoutes);
+app.use('/api/shift', shiftRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ code: 0, message: 'ok', data: null });

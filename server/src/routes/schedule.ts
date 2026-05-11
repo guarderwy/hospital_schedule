@@ -36,11 +36,13 @@ router.post('/batch', validateScheduleBatch, async (req, res, next) => {
     try {
       for (const item of schedules) {
         await conn.query(
-          `INSERT INTO schedule (staff_id, week_start, week_day, shift_type, is_generated, is_edited) 
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE shift_type = ?, is_generated = ?, is_edited = ?`,
-          [item.staff_id, item.week_start, item.week_day, item.shift_type, item.is_generated, item.is_edited,
-           item.shift_type, item.is_generated, item.is_edited]
+          `INSERT INTO schedule (staff_id, week_start, week_day, shift_type, shift_id, remark, is_generated, is_edited) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE shift_type = ?, shift_id = ?, remark = ?, is_generated = ?, is_edited = ?`,
+          [
+            item.staff_id, item.week_start, item.week_day, item.shift_type, item.shift_id || null, item.remark || null, item.is_generated, item.is_edited,
+            item.shift_type, item.shift_id || null, item.remark || null, item.is_generated, item.is_edited,
+          ],
         );
       }
       await conn.commit();
@@ -92,7 +94,7 @@ router.get('/current-week', async (req, res, next) => {
 
 router.post('/generate-night', validateGenerateSchedule, async (req, res, next) => {
   try {
-    const { prev_week_start, next_week_start } = req.body;
+    const { prev_week_start, next_week_start, randomize } = req.body;
     const [nightTeamRows] = await pool.query(
       'SELECT id FROM staff WHERE is_night_team = ? AND status = ? ORDER BY night_team_order',
       [true, 'active']
@@ -103,7 +105,7 @@ router.post('/generate-night', validateGenerateSchedule, async (req, res, next) 
     const copied = await copyWeekSchedule(prev_week_start, next_week_start);
 
     // 2. 生成夜班组下周排班
-    const generated = await generateNightSchedule(prev_week_start, next_week_start, nightTeamIds);
+    const generated = await generateNightSchedule(prev_week_start, next_week_start, nightTeamIds, !!randomize);
 
     // 3. 合并：非夜班组用复制的，夜班组用生成的覆盖
     const nightTeamIdSet = new Set(nightTeamIds);

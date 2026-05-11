@@ -6,11 +6,12 @@
 
 - 人员管理：护士信息维护、夜班组配置
 - 排班管理：双周排班表展示、本周只读/下周可编辑
-- 智能排班：基于6天周期规律自动生成夜班排班
+- 智能排班：基于6天周期规律自动生成夜班排班，支持随机刷新
 - 排班校验：实时校验排班规则，确保P/N覆盖
 - 休息申请：支持人员休息申请，排班生成时自动应用
 - 固定班次：支持特殊日期固定班次分配
 - 变更日志：记录排班变更历史
+- 班次管理：班次定义CRUD、备注功能(代理/跟岗/入科等)
 
 ## 技术栈
 
@@ -21,7 +22,22 @@
 | 数据库 | MySQL 8.0+ |
 | 测试 | Vitest |
 
-## 快速开始
+## 数据库架构
+
+系统使用MySQL数据库，主要表结构如下：
+
+| 表名 | 说明 | 关键字段 |
+|------|------|---------|
+| shift | 班次定义表 | id, code, name, category, start_time, end_time |
+| staff | 人员表 | id, name, level, is_night_team, night_team_order |
+| schedule | 排班表 | id, staff_id, week_start, week_day, shift_type, shift_id, remark |
+| staff_request | 休息申请 | id, staff_id, week_start, request_type, status |
+| fixed_shift_assignment | 固定班次分配 | id, staff_id, assign_date, shift_type, shift_id |
+| schedule_change_log | 排班变更日志 | id, staff_id, old_shift, new_shift, remark |
+
+**备注字段说明**: `remark` 字段用于记录代理、跟岗、入科等附加说明，显示格式为 `班次(备注)`。
+
+**数据迁移**: 从旧版本升级请执行 `scripts/migration-v2.sql`。
 
 ### 环境要求
 

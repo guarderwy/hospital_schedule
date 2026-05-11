@@ -67,10 +67,9 @@ function canonicalShift(shift: string): string {
     normalized === '正1+2' ||
     normalized === '正(中)' ||
     normalized === '正(医)' ||
-    normalized === '正(服)' ||
+    normalized === 'A(服)' ||
     normalized === '正(医+服)' ||
-    normalized === '医嘱' ||
-    normalized === '服药'
+    normalized === '出科'
   ) {
     return 'DAY';
   }
@@ -332,22 +331,30 @@ function updateStateAfterAssignment(state: StaffState, assignedShift: string): v
   }
 }
 
-function pickPStaff(states: StaffState[], day: number): StaffState | undefined {
+function pickPStaff(states: StaffState[], day: number, seed?: number): StaffState | undefined {
   const fixed = states.find((state) => state.fixedShifts[day] === SHIFT_P);
   if (fixed && canBeP(fixed, day)) {
     return fixed;
   }
 
-  return states
-    .filter((state) => canBeP(state, day))
-    .sort((a, b) => {
-      const aScore = a.daysAfterN ?? 99;
-      const bScore = b.daysAfterN ?? 99;
-      return bScore - aScore;
-    })[0];
+  const candidates = states.filter((state) => canBeP(state, day));
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  if (seed !== undefined) {
+    const idx = Math.floor(Math.random() * candidates.length);
+    return candidates[idx];
+  }
+
+  return candidates.sort((a, b) => {
+    const aScore = a.daysAfterN ?? 99;
+    const bScore = b.daysAfterN ?? 99;
+    return bScore - aScore;
+  })[0];
 }
 
-function pickNStaff(states: StaffState[], day: number, pStaffId: number | null): StaffState | undefined {
+function pickNStaff(states: StaffState[], day: number, pStaffId: number | null, seed?: number): StaffState | undefined {
   const fixed = states.find((state) => state.staff_id !== pStaffId && state.fixedShifts[day] === SHIFT_N);
   if (fixed && canBeN(fixed, day)) {
     return fixed;
@@ -358,10 +365,20 @@ function pickNStaff(states: StaffState[], day: number, pStaffId: number | null):
     return forced;
   }
 
-  return states.find((state) => state.staff_id !== pStaffId && canBeN(state, day));
+  const candidates = states.filter((state) => state.staff_id !== pStaffId && canBeN(state, day));
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  if (seed !== undefined) {
+    const idx = Math.floor(Math.random() * candidates.length);
+    return candidates[idx];
+  }
+
+  return candidates[0];
 }
 
-function fillSupportShifts(assignments: Map<number, string>, states: StaffState[], day: number): void {
+function fillSupportShifts(assignments: Map<number, string>, states: StaffState[], day: number, seed?: number): void {
   const unassigned = states.filter((state) => !assignments.has(state.staff_id));
 
   const needAssist = !isWeekend(day);
@@ -369,7 +386,9 @@ function fillSupportShifts(assignments: Map<number, string>, states: StaffState[
   let hasA2 = [...assignments.values()].includes(SHIFT_A2);
   let hasAssist = [...assignments.values()].includes(SHIFT_ASSIST);
 
-  for (const state of unassigned) {
+  const shuffled = seed !== undefined ? [...unassigned].sort(() => Math.random() - 0.5) : unassigned;
+
+  for (const state of shuffled) {
     if (state.fixedShifts[day]) {
       assignments.set(state.staff_id, state.fixedShifts[day]);
       hasA1 ||= state.fixedShifts[day] === SHIFT_A1;
@@ -417,6 +436,7 @@ export async function generateNightSchedule(
   prevWeekStart: string,
   nextWeekStart: string,
   nightTeamIds: number[],
+  randomize?: boolean,
 ): Promise<Partial<Schedule>[]> {
   if (!nightTeamIds.length) {
     return [];
@@ -453,20 +473,22 @@ export async function generateNightSchedule(
     ),
   );
 
+  const seed = randomize ? Date.now() : undefined;
+
   for (let day = 1; day <= 7; day++) {
     const assignments = new Map<number, string>();
 
-    const pStaff = pickPStaff(states, day);
+    const pStaff = pickPStaff(states, day, seed);
     if (pStaff) {
       assignments.set(pStaff.staff_id, SHIFT_P);
     }
 
-    const nStaff = pickNStaff(states, day, pStaff?.staff_id ?? null);
+    const nStaff = pickNStaff(states, day, pStaff?.staff_id ?? null, seed);
     if (nStaff) {
       assignments.set(nStaff.staff_id, SHIFT_N);
     }
 
-    fillSupportShifts(assignments, states, day);
+    fillSupportShifts(assignments, states, day, seed);
 
     for (const state of states) {
       const assigned = assignments.get(state.staff_id) || defaultShiftForState(state, day);
@@ -496,7 +518,7 @@ export async function copyWeekSchedule(
   toWeekStart: string,
 ): Promise<Partial<Schedule>[]> {
   const [rows] = await pool.query(
-    'SELECT staff_id, week_day, shift_type, is_generated FROM schedule WHERE week_start = ?',
+    'SELECT staff_id, week_day, shift_type, shift_id, remark, is_generated FROM schedule WHERE week_start = ?',
     [fromWeekStart],
   );
 
@@ -505,6 +527,8 @@ export async function copyWeekSchedule(
     week_start: toWeekStart,
     week_day: row.week_day,
     shift_type: row.shift_type,
+    shift_id: row.shift_id,
+    remark: row.remark,
     is_generated: row.is_generated,
     is_edited: false,
   }));

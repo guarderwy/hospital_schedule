@@ -11,11 +11,25 @@ export type ShiftType =
   | '正1+2'
   | '正(中)'
   | '正(医)'
-  | '正(服)'
+  | 'A(服)'
   | '正(医+服)'
-  | '医嘱'
-  | '服药'
+  | '出科'
   | '/';
+
+export interface Shift {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  start_time: string | null;
+  end_time: string | null;
+  duration_hours: number | null;
+  applicable_days: string;
+  color: string | null;
+  sort_order: number;
+  is_active: boolean;
+  description: string | null;
+}
 
 export type RequestType = 'rest' | 'prn' | 'other';
 export type RequestStatus = 'pending' | 'approved' | 'rejected';
@@ -41,6 +55,8 @@ export interface Schedule {
   week_start: string;
   week_day: number;
   shift_type: ShiftType | string;
+  shift_id: number | null;
+  remark: string | null;
   is_generated: boolean;
   is_edited: boolean;
   created_at: Date;
